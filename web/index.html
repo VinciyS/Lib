@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oyun Kütüphanem</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="/eel.js"></script>
+</head>
+<body>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">🎮</span>
+            <span class="sidebar-baslik">KÜTÜPHANEm</span>
+        </div>
+
+        <div class="sidebar-arama">
+            <span class="arama-ikon">⌕</span>
+            <input type="text" id="arama-kutusu" placeholder="Oyun ara…">
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-btn aktif" data-filtre="hepsi"  onclick="filtreAyarla('hepsi')">
+                <span class="nav-ikon">▤</span> Tüm Oyunlar
+                <span class="nav-sayi" id="nav-sayi-hepsi">0</span>
+            </button>
+            <button class="nav-btn" data-filtre="steam"  onclick="filtreAyarla('steam')">
+                <span class="nav-ikon">🎮</span> Steam
+                <span class="nav-sayi" id="nav-sayi-steam">0</span>
+            </button>
+            <button class="nav-btn" data-filtre="epic"   onclick="filtreAyarla('epic')">
+                <span class="nav-ikon">◈</span> Epic
+                <span class="nav-sayi" id="nav-sayi-epic">0</span>
+            </button>
+            <button class="nav-btn" data-filtre="gog"    onclick="filtreAyarla('gog')">
+                <span class="nav-ikon">◉</span> GOG
+                <span class="nav-sayi" id="nav-sayi-gog">0</span>
+            </button>
+            <button class="nav-btn" data-filtre="amazon" onclick="filtreAyarla('amazon')">
+                <span class="nav-ikon">◎</span> Amazon
+                <span class="nav-sayi" id="nav-sayi-amazon">0</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-alt">
+            <label class="arac-satiri">
+                <input type="checkbox" id="showToolsCheckbox" onchange="renderGames()">
+                Araçları göster
+            </label>
+        </div>
+
+        <!-- EPİC AUTH PANELİ -->
+        <div id="epic-auth-bolumu" style="display:none">
+            <p class="epic-auth-baslik">⚠️ Epic girişi gerekiyor</p>
+            <ol class="epic-talimat">
+                <li>
+                    <a class="epic-link-btn"
+                       href="https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code"
+                       target="_blank" onclick="epicGeriSayimBaslat()">
+                        Yetkilendirme Sayfası →
+                    </a>
+                    <span id="epic-sayac" style="display:none;"></span>
+                </li>
+                <li><code>authorizationCode</code> değerini kopyala</li>
+                <li>Aşağıya yapıştır</li>
+            </ol>
+            <div class="epic-input-satiri">
+                <input type="text" id="epic-auth-input" placeholder="Kodu yapıştır…"
+                       onkeydown="if(event.key==='Enter') epicKodGonder()">
+                <button id="epic-gonder-btn" class="epic-btn" onclick="epicKodGonder()">Giriş</button>
+            </div>
+            <div id="epic-durum" class="epic-durum"></div>
+        </div>
+    </aside>
+
+    <!-- ===== ANA İÇERİK ===== -->
+    <main class="ana-icerik">
+
+        <!-- Üst Bar -->
+        <div class="ust-bar">
+            <div class="ust-bar-sol">
+                <h2 class="kutuphane-baslik">
+                    Tüm Oyunlar
+                    <span id="oyun-sayisi" class="oyun-sayisi-rozet">0</span>
+                </h2>
+                <p id="durum-cubugu" class="durum-cubugu"></p>
+            </div>
+
+            <div class="ust-bar-sag">
+                <!-- Sıralama -->
+                <div class="siralama-grup">
+                    <span class="siralama-etiket">SIRALA</span>
+                    <select id="siralama-secici" onchange="siralamaAyarla(this.value)">
+                        <option value="ad-asc">İsim (A→Z)</option>
+                        <option value="ad-desc">İsim (Z→A)</option>
+                        <option value="saat-desc">En Çok Oynanan</option>
+                        <option value="saat-asc">En Az Oynanan</option>
+                        <option value="platform">Platform</option>
+                        <option value="kurulu" selected>Kurulu Önce</option>
+                    </select>
+                </div>
+
+                <!-- Görünüm seçici -->
+                <div class="gorunum-grup">
+                    <button class="gorunum-btn aktif" id="btn-grid" onclick="gorunumAyarla('grid')" title="Grid">⊞</button>
+                    <button class="gorunum-btn" id="btn-liste" onclick="gorunumAyarla('liste')" title="Liste">☰</button>
+                </div>
+
+                <!-- Tarama butonları -->
+                <button id="tara-btn" class="tara-btn" onclick="UploadGames()">⟳ Tara</button>
+                <button class="zorla-yenile-btn" onclick="zorlaYenile()" title="Sıfırdan tara">↺</button>
+            </div>
+        </div>
+
+        <!-- Oyun Grid -->
+        <div id="oyun-grid" class="oyun-grid">
+            <p class="bos-mesaj">Başlamak için "Tara" butonuna bas.</p>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

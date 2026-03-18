@@ -1,0 +1,19 @@
+# Kişisel ayarlar ve gizli veriler
+config.json
+epic_token.json
+
+# Cache dosyaları
+kapak_cache.json
+kutuphane_cache.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
