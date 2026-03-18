@@ -42,6 +42,17 @@
                 <span class="nav-ikon">◎</span> Amazon
                 <span class="nav-sayi" id="nav-sayi-amazon">0</span>
             </button>
+            <div class="nav-ayrac"></div>
+            <button class="nav-btn" data-filtre="istatistik" onclick="istatistikAc()">
+                <span class="nav-ikon">📊</span> İstatistikler
+            </button>
+            <button class="nav-btn" id="btn-guncellemeler" onclick="guncellemelerAc()">
+                <span class="nav-ikon">📦</span> Güncellemeler
+                <span class="nav-sayi nav-sayi-guncelleme" id="nav-sayi-guncelleme" style="display:none">0</span>
+            </button>
+            <button class="nav-btn" onclick="ayarlarAc()">
+                <span class="nav-ikon">⚙️</span> Ayarlar
+            </button>
         </nav>
 
         <div class="sidebar-alt">
@@ -120,6 +131,164 @@
         </div>
     </main>
 
+    <!-- DETAY PANELİ -->
+    <div id="detay-overlay" onclick="detayKapat()"></div>
+    <div id="detay-panel">
+        <button class="detay-kapat-btn" onclick="detayKapat()">✕</button>
+        <div id="detay-icerik"></div>
+    </div>
+
+    <!-- İSTATİSTİK PANELİ -->
+    <div id="istatistik-overlay" onclick="istatistikKapat()"></div>
+    <div id="istatistik-panel">
+        <div class="istat-header">
+            <h2>📊 İstatistikler</h2>
+            <button onclick="istatistikKapat()">✕</button>
+        </div>
+        <div id="istatistik-icerik"></div>
+    </div>
+
+    <!-- SAĞ TIK MENÜSÜ -->
+    <div id="context-menu">
+        <button id="cm-oyna"   onclick="cm_oyna()">▶ Oyna</button>
+        <button id="cm-indir"  onclick="cm_indir()">⬇ İndir</button>
+        <div class="cm-ayrac"></div>
+        <button id="cm-kaldir" onclick="cm_kaldir()" class="cm-tehlikeli">🗑 Kaldır</button>
+    </div>
+
+    <!-- GÜNCELLEME PANELİ -->
+    <div id="guncelleme-overlay" onclick="guncellemelerKapat()"></div>
+    <div id="guncelleme-panel">
+        <div class="guncelleme-header">
+            <h2>📦 Güncellemeler</h2>
+            <button onclick="guncellemelerKapat()">✕</button>
+        </div>
+        <div id="guncelleme-icerik">
+            <p class="bos-mesaj">Taranıyor…</p>
+        </div>
+    </div>
+
+    <!-- AYARLAR PANELİ -->
+    <div id="ayarlar-overlay" onclick="ayarlarKapat()"></div>
+    <div id="ayarlar-panel">
+        <div class="ayarlar-header">
+            <h2>⚙️ Ayarlar</h2>
+            <button onclick="ayarlarKapat()">✕</button>
+        </div>
+        <div class="ayarlar-icerik">
+
+            <!-- RENK TEMASI -->
+            <div class="ayar-grup">
+                <h3 class="ayar-grup-baslik">🎨 Renk Teması</h3>
+                <div class="tema-grid">
+                    <button class="tema-btn aktif" data-tema="varsayilan" onclick="temaUygula('varsayilan')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#0e0e16,#6c8cff)"></span>
+                        <span>Kozmik</span>
+                    </button>
+                    <button class="tema-btn" data-tema="kirmizi" onclick="temaUygula('kirmizi')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#0e0e16,#f87171)"></span>
+                        <span>Ember</span>
+                    </button>
+                    <button class="tema-btn" data-tema="yesil" onclick="temaUygula('yesil')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#0a1a0e,#4ade80)"></span>
+                        <span>Matrix</span>
+                    </button>
+                    <button class="tema-btn" data-tema="altin" onclick="temaUygula('altin')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#1a1200,#facc15)"></span>
+                        <span>Altın</span>
+                    </button>
+                    <button class="tema-btn" data-tema="mor" onclick="temaUygula('mor')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#0e0016,#a78bfa)"></span>
+                        <span>Gece Yarısı</span>
+                    </button>
+                    <button class="tema-btn" data-tema="pembe" onclick="temaUygula('pembe')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#1a0010,#f472b6)"></span>
+                        <span>Neon</span>
+                    </button>
+                    <button class="tema-btn" data-tema="acik" onclick="temaUygula('acik')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#f0f4f8,#3b82f6)"></span>
+                        <span>Açık</span>
+                    </button>
+                    <button class="tema-btn" data-tema="okyanus" onclick="temaUygula('okyanus')">
+                        <span class="tema-onizleme" style="background:linear-gradient(135deg,#00101a,#38bdf8)"></span>
+                        <span>Okyanus</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KART BOYUTU -->
+            <div class="ayar-grup">
+                <h3 class="ayar-grup-baslik">📐 Kart Boyutu</h3>
+                <div class="slider-konteyner">
+                    <span class="slider-etiket">Küçük</span>
+                    <input type="range" id="kart-boyut-slider" min="120" max="260" step="10" value="165"
+                           oninput="kartBoyutuAyarla(this.value)">
+                    <span class="slider-etiket">Büyük</span>
+                    <span class="slider-deger" id="kart-boyut-deger">165px</span>
+                </div>
+            </div>
+
+            <!-- SIDEBAR GENİŞLİĞİ -->
+            <div class="ayar-grup">
+                <h3 class="ayar-grup-baslik">📏 Sidebar Genişliği</h3>
+                <div class="slider-konteyner">
+                    <span class="slider-etiket">Dar</span>
+                    <input type="range" id="sidebar-genislik-slider" min="160" max="320" step="10" value="220"
+                           oninput="sidebarGenisligiAyarla(this.value)">
+                    <span class="slider-etiket">Geniş</span>
+                    <span class="slider-deger" id="sidebar-genislik-deger">220px</span>
+                </div>
+            </div>
+
+            <!-- GÖRÜNÜM SEÇENEKLERİ -->
+            <div class="ayar-grup">
+                <h3 class="ayar-grup-baslik">👁️ Görünüm</h3>
+                <div class="toggle-liste">
+                    <label class="toggle-satir">
+                        <span class="toggle-etiket">
+                            <span>Kurulu Değil → Soluk Göster</span>
+                            <small>Kurulu olmayan oyunlar daha az belirgin</small>
+                        </span>
+                        <input type="checkbox" id="toggle-soluk" checked onchange="gorünümAyarKaydet()">
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <label class="toggle-satir">
+                        <span class="toggle-etiket">
+                            <span>Oynama Saatini Göster</span>
+                            <small>Kartın üst köşesindeki saat etiketi</small>
+                        </span>
+                        <input type="checkbox" id="toggle-saat" checked onchange="gorünümAyarKaydet()">
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <label class="toggle-satir">
+                        <span class="toggle-etiket">
+                            <span>Hover'da Kart Büyümesi</span>
+                            <small>Üzerine gelince yukarı yükselme animasyonu</small>
+                        </span>
+                        <input type="checkbox" id="toggle-hover" checked onchange="gorünümAyarKaydet()">
+                        <span class="toggle-switch"></span>
+                    </label>
+                    <label class="toggle-satir">
+                        <span class="toggle-etiket">
+                            <span>Kurulum Durumu Etiketi</span>
+                            <small>✔ Kurulu / Kurulu Değil etiketi</small>
+                        </span>
+                        <input type="checkbox" id="toggle-durum" checked onchange="gorünümAyarKaydet()">
+                        <span class="toggle-switch"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- SIFIRLAMA -->
+            <div class="ayar-grup">
+                <h3 class="ayar-grup-baslik">🔄 Sıfırla</h3>
+                <button class="ayar-reset-btn" onclick="ayarlariSifirla()">Varsayılana Dön</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -921,5 +921,252 @@ def kutuphane_cache_sil() -> None:
         log.info("Kütüphane cache silindi.")
 
 
+
+@eel.expose
+def oyun_detay_getir(oyun_id: str, platform: str) -> dict:
+    """Steam için store API + reviews çeker, diğerleri için temel bilgi döner."""
+    if "steam" in platform.lower():
+        try:
+            import threading
+            detay_sonuc = {}
+            yorum_sonuc = {}
+
+            def detay_cek():
+                r = requests.get(
+                    f"https://store.steampowered.com/api/appdetails?appids={oyun_id}&l=english",
+                    timeout=15
+                )
+                r.raise_for_status()
+                detay_sonuc.update(r.json())
+
+            def yorum_cek():
+                r = requests.get(
+                    f"https://store.steampowered.com/appreviews/{oyun_id}",
+                    params={"json": 1, "language": "english", "num_per_page": 11,
+                            "filter": "recent", "review_type": "all"},
+                    timeout=15
+                )
+                if r.status_code == 200:
+                    yorum_sonuc.update(r.json())
+
+            t1 = threading.Thread(target=detay_cek)
+            t2 = threading.Thread(target=yorum_cek)
+            t1.start(); t2.start()
+            t1.join(); t2.join()
+
+            data = detay_sonuc.get(str(oyun_id), {})
+            if not data.get("success"):
+                return {"hata": "Game not found"}
+            d = data["data"]
+
+            yorumlar = []
+            for rev in yorum_sonuc.get("reviews", []):
+                author = rev.get("author", {})
+                metin  = rev.get("review", "").strip()
+                if not metin:
+                    continue
+                if len(metin) > 300:
+                    metin = metin[:300].rsplit(" ", 1)[0] + "…"
+                yorumlar.append({
+                    "metin":         metin,
+                    "oynanma_saati": round(author.get("playtime_forever", 0) / 60, 1),
+                    "olumlu":        rev.get("voted_up", True),
+                    "tarih":         rev.get("timestamp_updated", 0),
+                })
+
+            puan_ozeti = yorum_sonuc.get("query_summary", {})
+
+            return {
+                "baslik":        d.get("name", ""),
+                "aciklama":      d.get("short_description", ""),
+                "gelistirici":   ", ".join(d.get("developers", [])),
+                "yayinci":       ", ".join(d.get("publishers", [])),
+                "cikis_tarihi":  d.get("release_date", {}).get("date", ""),
+                "turler":        [g["description"] for g in d.get("genres", [])],
+                "puan":          d.get("metacritic", {}).get("score"),
+                "ucretsiz":      d.get("is_free", False),
+                "fiyat":         d.get("price_overview", {}).get("final_formatted", ""),
+                "kapsul_resim":  d.get("header_image", ""),
+                "ekran_gors":    [s["path_thumbnail"] for s in d.get("screenshots", [])[:8]],
+                "platform":      platform,
+                "oyun_id":       oyun_id,
+                "yorumlar":      yorumlar,
+                "toplam_olumlu": puan_ozeti.get("total_positive", 0),
+                "toplam_yorum":  puan_ozeti.get("total_reviews", 0),
+                "puan_metni":    puan_ozeti.get("review_score_desc", ""),
+            }
+        except requests.RequestException as e:
+            log.warning(f"Steam detail error ({oyun_id}): {e}")
+            return {"hata": str(e)}
+
+    return {
+        "baslik": "", "aciklama": "", "gelistirici": "",
+        "turler": [], "ekran_gors": [], "yorumlar": [],
+        "platform": platform, "oyun_id": oyun_id,
+    }
+
+
+@eel.expose
+def oyun_baslat(oyun_id: str, platform: str) -> dict:
+    import subprocess, sys
+    try:
+        url = f"steam://rungameid/{oyun_id}" if "steam" in platform.lower() else f"heroic://launch/{oyun_id}"
+        subprocess.Popen(["start", url], shell=True) if sys.platform == "win32" else subprocess.Popen(["xdg-open", url])
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "hata": str(e)}
+
+
+@eel.expose
+def oyun_indir(oyun_id: str, platform: str) -> dict:
+    import subprocess, sys
+    try:
+        url = f"steam://install/{oyun_id}" if "steam" in platform.lower() else f"heroic://install/{oyun_id}"
+        subprocess.Popen(["start", url], shell=True) if sys.platform == "win32" else subprocess.Popen(["xdg-open", url])
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "hata": str(e)}
+
+
+@eel.expose
+def oyun_kaldir(oyun_id: str, platform: str) -> dict:
+    import subprocess, sys
+    try:
+        url = f"steam://uninstall/{oyun_id}" if "steam" in platform.lower() else f"heroic://uninstall/{oyun_id}"
+        subprocess.Popen(["start", url], shell=True) if sys.platform == "win32" else subprocess.Popen(["xdg-open", url])
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "hata": str(e)}
+
+
+@eel.expose
+def guncelleme_tara() -> list:
+    """
+    Steam ve Heroic oyunlarındaki bekleyen güncellemeleri tespit eder.
+    
+    Steam: appmanifest_*.acf dosyasındaki StateFlags değerine bakar.
+      StateFlags=4  → Tamamen kurulu, güncelleme yok
+      StateFlags=6  → Güncelleme gerekli
+      StateFlags=1026 → Güncelleme duraklatıldı
+    
+    Heroic (Epic/GOG/Amazon): installed.json'daki version ile
+      library.json'daki version'ı karşılaştırır.
+    
+    Döner: [{"id", "ad", "platform", "mevcut_surum", "yeni_surum"}]
+    """
+    guncellemeler = []
+
+    # ── Steam ─────────────────────────────────────
+    steam_yollari = [
+        r"C:\Program Files (x86)\Steam",
+        os.path.expanduser("~/.local/share/Steam"),
+        os.path.expanduser("~/.steam/steam"),
+    ]
+    ana_yol = next((y for y in steam_yollari if os.path.exists(y)), None)
+
+    GUNCELLEME_FLAGLERI = {
+        "6":    "Update Required",
+        "1026": "Update Paused",
+        "516":  "Update Running",
+        "1538": "Update Queued",
+    }
+
+    if ana_yol:
+        for lib in kutuphaneleri_bul(ana_yol):
+            for manifest in glob.glob(os.path.join(lib, "appmanifest_*.acf")):
+                try:
+                    with open(manifest, "r", encoding="utf-8") as f:
+                        veri = f.read()
+                    appid      = re.search(r'"appid"\s+"(\d+)"', veri).group(1)
+                    name       = re.search(r'"name"\s+"([^"]+)"', veri).group(1)
+                    state_flag = re.search(r'"StateFlags"\s+"(\d+)"', veri)
+                    build_id   = re.search(r'"buildid"\s+"(\d+)"', veri)
+                    build_local = build_id.group(1) if build_id else "?"
+
+                    if state_flag and state_flag.group(1) in GUNCELLEME_FLAGLERI:
+                        guncellemeler.append({
+                            "id":           appid,
+                            "ad":           name,
+                            "platform":     "Steam",
+                            "durum":        GUNCELLEME_FLAGLERI[state_flag.group(1)],
+                            "mevcut_surum": f"Build {build_local}",
+                            "yeni_surum":   "Güncelleme Bekliyor",
+                        })
+                except Exception:
+                    pass
+
+    # ── Heroic (Epic / GOG / Amazon) ──────────────
+    home = os.path.expanduser("~")
+
+    heroic_kaynaklar = [
+        {
+            "installed": ".config/heroic/legendaryConfig/legendary/installed.json",
+            "library":   ".config/heroic/legendaryConfig/legendary/library.json",
+            "platform":  "Epic", "tip": "legendary",
+        },
+        {
+            "installed": ".var/app/com.heroicgameslauncher.hgl/config/heroic/legendaryConfig/legendary/installed.json",
+            "library":   ".var/app/com.heroicgameslauncher.hgl/config/heroic/legendaryConfig/legendary/library.json",
+            "platform":  "Epic", "tip": "legendary",
+        },
+        {
+            "installed": ".config/heroic/gog_store/installed.json",
+            "library":   ".config/heroic/gog_store/library.json",
+            "platform":  "GOG", "tip": "liste",
+        },
+    ]
+
+    for kaynak in heroic_kaynaklar:
+        inst_path = os.path.join(home, kaynak["installed"])
+        lib_path  = os.path.join(home, kaynak["library"])
+        if not os.path.exists(inst_path) or not os.path.exists(lib_path):
+            continue
+
+        try:
+            with open(inst_path, "r", encoding="utf-8") as f:
+                installed = json.load(f)
+            with open(lib_path, "r", encoding="utf-8") as f:
+                library_raw = json.load(f)
+
+            # library.json formatı farklı olabilir
+            if isinstance(library_raw, list):
+                library = {o.get("app_name", o.get("id", "")): o for o in library_raw}
+            elif isinstance(library_raw, dict):
+                library = library_raw
+            else:
+                continue
+
+            # installed.json formatı
+            if kaynak["tip"] == "legendary":
+                oyunlar_iter = installed.items()
+            else:
+                lst = installed if isinstance(installed, list) else list(installed.values())
+                oyunlar_iter = ((o.get("app_name", o.get("id", "")), o) for o in lst)
+
+            for app_id, inst_data in oyunlar_iter:
+                if not app_id:
+                    continue
+                inst_ver = inst_data.get("version") or inst_data.get("build_version") or ""
+                lib_data = library.get(app_id, {})
+                lib_ver  = lib_data.get("version") or lib_data.get("build_version") or ""
+                ad       = inst_data.get("title", app_id)
+
+                # Her ikisi de doluysa ve farklıysa → güncelleme var
+                if inst_ver and lib_ver and inst_ver != lib_ver:
+                    guncellemeler.append({
+                        "id":           app_id,
+                        "ad":           ad,
+                        "platform":     kaynak["platform"],
+                        "durum":        "Update Available",
+                        "mevcut_surum": inst_ver,
+                        "yeni_surum":   lib_ver,
+                    })
+
+        except Exception as e:
+            log.debug(f"Heroic güncelleme tarama hatası ({inst_path}): {e}")
+
+    log.info(f"Güncelleme taraması: {len(guncellemeler)} bekleyen güncelleme")
+    return guncellemeler
+
 if __name__ == "__main__":
     eel.start("index.html", size=(1280, 820), mode="default")
