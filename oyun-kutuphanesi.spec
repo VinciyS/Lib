@@ -31,7 +31,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='oyun-kutuphanesi',
+    name='Lib',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

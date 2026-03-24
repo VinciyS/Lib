@@ -1168,7 +1168,7 @@ if __name__ == "__main__":
         def eel_baslat():
             eel.start(
                 "index.html",
-                mode="none",        # Tarayıcı açma, sadece sunucu
+                mode=None,        # Tarayıcı açma, sadece sunucu
                 port=PORT,
                 block=True,             # Eel thread'i bloklasın, biz webview thread'inde devam edeceğiz
             )
@@ -1195,4 +1195,4 @@ if __name__ == "__main__":
     except ImportError:
         # pywebview kurulu değilse Eel'in kendi sunucusunda aç
         log.warning("pywebview bulunamadı → tarayıcıda açılıyor. Kurmak için: pip install pywebview")
-        eel.start("index.html", size=(1280, 820), mode="default", port=PORT)
+        eel.start("index.html", size=(1280, 820), port=PORT)
