@@ -1043,16 +1043,8 @@ def oyun_kaldir(oyun_id: str, platform: str) -> dict:
 def guncelleme_tara() -> list:
     """
     Steam ve Heroic oyunlarındaki bekleyen güncellemeleri tespit eder.
-    
-    Steam: appmanifest_*.acf dosyasındaki StateFlags değerine bakar.
-      StateFlags=4  → Tamamen kurulu, güncelleme yok
-      StateFlags=6  → Güncelleme gerekli
-      StateFlags=1026 → Güncelleme duraklatıldı
-    
-    Heroic (Epic/GOG/Amazon): installed.json'daki version ile
-      library.json'daki version'ı karşılaştırır.
-    
-    Döner: [{"id", "ad", "platform", "mevcut_surum", "yeni_surum"}]
+    Steam: appmanifest StateFlags değerine bakar.
+    Heroic: installed.json vs library.json version karşılaştırması.
     """
     guncellemeler = []
 
@@ -1082,22 +1074,18 @@ def guncelleme_tara() -> list:
                     state_flag = re.search(r'"StateFlags"\s+"(\d+)"', veri)
                     build_id   = re.search(r'"buildid"\s+"(\d+)"', veri)
                     build_local = build_id.group(1) if build_id else "?"
-
                     if state_flag and state_flag.group(1) in GUNCELLEME_FLAGLERI:
                         guncellemeler.append({
-                            "id":           appid,
-                            "ad":           name,
-                            "platform":     "Steam",
-                            "durum":        GUNCELLEME_FLAGLERI[state_flag.group(1)],
+                            "id": appid, "ad": name, "platform": "Steam",
+                            "durum": GUNCELLEME_FLAGLERI[state_flag.group(1)],
                             "mevcut_surum": f"Build {build_local}",
-                            "yeni_surum":   "Güncelleme Bekliyor",
+                            "yeni_surum": "Güncelleme Bekliyor",
                         })
                 except Exception:
                     pass
 
-    # ── Heroic (Epic / GOG / Amazon) ──────────────
+    # ── Heroic ────────────────────────────────────
     home = os.path.expanduser("~")
-
     heroic_kaynaklar = [
         {
             "installed": ".config/heroic/legendaryConfig/legendary/installed.json",
@@ -1121,14 +1109,12 @@ def guncelleme_tara() -> list:
         lib_path  = os.path.join(home, kaynak["library"])
         if not os.path.exists(inst_path) or not os.path.exists(lib_path):
             continue
-
         try:
             with open(inst_path, "r", encoding="utf-8") as f:
                 installed = json.load(f)
             with open(lib_path, "r", encoding="utf-8") as f:
                 library_raw = json.load(f)
 
-            # library.json formatı farklı olabilir
             if isinstance(library_raw, list):
                 library = {o.get("app_name", o.get("id", "")): o for o in library_raw}
             elif isinstance(library_raw, dict):
@@ -1136,7 +1122,6 @@ def guncelleme_tara() -> list:
             else:
                 continue
 
-            # installed.json formatı
             if kaynak["tip"] == "legendary":
                 oyunlar_iter = installed.items()
             else:
@@ -1150,23 +1135,64 @@ def guncelleme_tara() -> list:
                 lib_data = library.get(app_id, {})
                 lib_ver  = lib_data.get("version") or lib_data.get("build_version") or ""
                 ad       = inst_data.get("title", app_id)
-
-                # Her ikisi de doluysa ve farklıysa → güncelleme var
                 if inst_ver and lib_ver and inst_ver != lib_ver:
                     guncellemeler.append({
-                        "id":           app_id,
-                        "ad":           ad,
-                        "platform":     kaynak["platform"],
-                        "durum":        "Update Available",
-                        "mevcut_surum": inst_ver,
-                        "yeni_surum":   lib_ver,
+                        "id": app_id, "ad": ad, "platform": kaynak["platform"],
+                        "durum": "Update Available",
+                        "mevcut_surum": inst_ver, "yeni_surum": lib_ver,
                     })
-
         except Exception as e:
-            log.debug(f"Heroic güncelleme tarama hatası ({inst_path}): {e}")
+            log.debug(f"Heroic güncelleme tarama hatası: {e}")
 
     log.info(f"Güncelleme taraması: {len(guncellemeler)} bekleyen güncelleme")
     return guncellemeler
 
 if __name__ == "__main__":
-    eel.start("index.html", size=(1280, 820), mode="default")
+    import threading
+    import socket
+
+    PORT = 8765
+
+    def port_bos_mu(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(("localhost", port)) != 0
+
+    # Farklı port bul (aynı anda iki instance açılmasın diye)
+    while not port_bos_mu(PORT):
+        PORT += 1
+
+    try:
+        import webview
+
+        # Eel'i arka planda başlat (sadece HTTP + WebSocket sunucu olarak)
+        def eel_baslat():
+            eel.start(
+                "index.html",
+                mode="none",        # Tarayıcı açma, sadece sunucu
+                port=PORT,
+                block=True,             # Eel thread'i bloklasın, biz webview thread'inde devam edeceğiz
+            )
+
+        eel_thread = threading.Thread(target=eel_baslat, daemon=True)
+        eel_thread.start()
+
+        # Eel'in ayağa kalkmasını bekle
+        import time
+        time.sleep(1)
+
+        # Native pencere aç
+        window = webview.create_window(
+            title="Lib",
+            url=f"http://localhost:{PORT}/index.html",
+            width=1280,
+            height=820,
+            min_size=(800, 600),
+            resizable=True,
+        )
+
+        webview.start(debug=False)
+
+    except ImportError:
+        # pywebview kurulu değilse Eel'in kendi sunucusunda aç
+        log.warning("pywebview bulunamadı → tarayıcıda açılıyor. Kurmak için: pip install pywebview")
+        eel.start("index.html", size=(1280, 820), mode="default", port=PORT)

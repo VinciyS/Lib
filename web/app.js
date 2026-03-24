@@ -812,3 +812,70 @@ setTimeout(async () => {
         }
     } catch(e) {}
 }, 3000);
+// ── BİLDİRİM SİSTEMİ ─────────────────────────
+async function bildirimIzniAl() {
+    if (!("Notification" in window)) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
+    const izin = await Notification.requestPermission();
+    return izin === "granted";
+}
+
+async function bildirimGoster(baslik, mesaj) {
+    if (!await bildirimIzniAl()) return;
+    const n = new Notification(baslik, { body: mesaj, tag: baslik, silent: false });
+    setTimeout(() => n.close(), 5000);
+}
+
+// ── RESIZE HANDLES ────────────────────────────
+(function() {
+    function resizerKur(resizerEl, hedefEl, yon, min, max, onBitince) {
+        if (!resizerEl || !hedefEl) return;
+        let surukleniyor = false, baslangicX = 0, baslangicW = 0;
+
+        resizerEl.addEventListener("mousedown", (e) => {
+            surukleniyor = true;
+            baslangicX   = e.clientX;
+            baslangicW   = hedefEl.getBoundingClientRect().width;
+            document.body.classList.add("surukleniyor-yatay");
+            e.preventDefault();
+        });
+        document.addEventListener("mousemove", (e) => {
+            if (!surukleniyor) return;
+            const delta = yon === "sag" ? e.clientX - baslangicX : baslangicX - e.clientX;
+            const yeni  = Math.min(max, Math.max(min, baslangicW + delta));
+            hedefEl.style.width = yeni + "px";
+        });
+        document.addEventListener("mouseup", () => {
+            if (!surukleniyor) return;
+            surukleniyor = false;
+            document.body.classList.remove("surukleniyor-yatay");
+            if (onBitince) onBitince(parseInt(hedefEl.style.width));
+        });
+    }
+
+    // Sidebar — sağ kenara sürükle
+    resizerKur(
+        document.getElementById("sidebar-resizer"),
+        document.querySelector(".sidebar"),
+        "sag", 140, 400,
+        (w) => {
+            document.documentElement.style.setProperty("--sidebar-w", w + "px");
+            if (typeof aktifAyarlar !== "undefined") {
+                aktifAyarlar.sidebarGenislik = w;
+                if (typeof ayarlariKaydet === "function") ayarlariKaydet();
+                const sl = document.getElementById("sidebar-genislik-slider");
+                const sv = document.getElementById("sidebar-genislik-deger");
+                if (sl) sl.value = w;
+                if (sv) sv.textContent = w + "px";
+            }
+        }
+    );
+
+    // Detay paneli — sol kenara sürükle
+    resizerKur(
+        document.getElementById("detay-resizer"),
+        document.getElementById("detay-panel"),
+        "sol", 340, 900, null
+    );
+})();
